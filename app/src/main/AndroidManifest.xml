@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.tanjid.solynk">
+
+    <!-- Permission for using the camera (required for QR code scanning) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Solynk"
+        tools:targetApi="31">
+
+        <!-- Launcher activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Custom activities -->
+        <activity android:name=".MyQRActivity" android:exported="false" />
+        <activity android:name=".ScanQRActivity" android:exported="false" />
+        <activity android:name=".ChatActivity" android:exported="false" /> <!-- ✅ Added this -->
+
+        <!-- Required by ZXing for scanning -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            tools:replace="android:screenOrientation,android:theme" />
+    </application>
+
+</manifest>

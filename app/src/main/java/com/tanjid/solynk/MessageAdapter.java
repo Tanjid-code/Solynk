@@ -8,7 +8,10 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -38,10 +41,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view;
         if (viewType == VIEW_TYPE_MESSAGE_SENT) {
-            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_sent, parent, false);
+            view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_message_sent, parent, false);
             return new SentMessageViewHolder(view);
-        } else { // viewType == VIEW_TYPE_MESSAGE_RECEIVED
-            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_received, parent, false);
+        } else {
+            view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_message_received, parent, false);
             return new ReceivedMessageViewHolder(view);
         }
     }
@@ -62,28 +67,37 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     private static class SentMessageViewHolder extends RecyclerView.ViewHolder {
-        TextView textViewMessage;
+        TextView textViewMessage, textViewTimestamp;
 
         SentMessageViewHolder(View itemView) {
             super(itemView);
             textViewMessage = itemView.findViewById(R.id.textViewMessage);
+            textViewTimestamp = itemView.findViewById(R.id.textViewTimestamp);
         }
 
         void bind(Message message) {
             textViewMessage.setText(message.getText());
+            textViewTimestamp.setText(formatTime(message.getTimestamp()));
         }
     }
 
     private static class ReceivedMessageViewHolder extends RecyclerView.ViewHolder {
-        TextView textViewMessage;
+        TextView textViewMessage, textViewTimestamp;
 
         ReceivedMessageViewHolder(View itemView) {
             super(itemView);
             textViewMessage = itemView.findViewById(R.id.textViewMessage);
+            textViewTimestamp = itemView.findViewById(R.id.textViewTimestamp);
         }
 
         void bind(Message message) {
             textViewMessage.setText(message.getText());
+            textViewTimestamp.setText(formatTime(message.getTimestamp()));
         }
+    }
+
+    private static String formatTime(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        return sdf.format(new Date(timestamp));
     }
 }

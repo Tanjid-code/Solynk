@@ -1,5 +1,22 @@
 <resources>
     <string name="app_name">Solynk</string>
+
+    <!-- Login/Register -->
+    <string name="welcome_to">Welcome to</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="login">Login</string>
+    <string name="register">Register</string>
+    <string name="no_account">Don\'t have an account?</string>
+    <string name="have_account">Already have an account?</string>
+    <string name="register_here">Register Here</string>
+    <string name="login_here">Login Here</string>
+    <string name="logout">Logout</string>
+
+    <!-- Main Activity -->
+    <string name="type_a_message">Type a message…</string>
+    <string name="send">Send</string>
     <string name="status_not_connected">Status: Not Connected</string>
     <string name="show_my_qr_code">Show My QR Code</string>
     <string name="scan_a_qr_code">Scan a QR Code</string>
@@ -7,6 +24,21 @@
     <string name="connect">Connect</string>
     <string name="start_chat">Start Chat</string>
     <string name="disconnect">Disconnect</string>
-    <string name="type_a_message">Type a message…</string>
-    <string name="send">Send</string>
+
+    <!-- Messages -->
+    <string name="no_messages_yet">No messages yet. Start the conversation!</string>
+    <string name="scan_qr_instruction">Scan this QR code to connect</string>
+    <string name="your_id">Your ID:</string>
+    <string name="qr_code_desc">QR Code for connection</string>
+    <string name="copy_id">Copy ID</string>
+    <string name="share_qr">Share</string>
+
+    <!-- Validation Messages -->
+    <string name="username_required">Username is required</string>
+    <string name="password_required">Password is required</string>
+    <string name="passwords_not_match">Passwords do not match</string>
+    <string name="password_length">Password must be at least 6 characters</string>
+    <string name="registration_success">Registration successful! Please login.</string>
+    <string name="login_failed">Invalid username or password</string>
+    <string name="user_exists">Username already exists</string>
 </resources>

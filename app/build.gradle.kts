@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
-    kotlin("android")
-    id("com.google.gms.google-services") // Firebase plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -15,67 +14,100 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Enable multidex if needed
+        multiDexEnabled = true
+
+        // Vector drawables support
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
+        }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/license.txt"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/notice.txt"
+            excludes += "/META-INF/ASL2.0"
+            excludes += "/META-INF/*.kotlin_module"
+        }
     }
 
     buildFeatures {
-        viewBinding = true
+        viewBinding = false
+        dataBinding = false
     }
 }
 
 dependencies {
-    // Kotlin Standard Library
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
-
-    // AndroidX & Material
-    implementation("androidx.core:core-ktx:1.12.0")
+    // AndroidX Core
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.activity:activity:1.8.2")
+    implementation("androidx.fragment:fragment:1.6.2")
 
-    // ZXing for QR generation
+    // Material Design
+    implementation("com.google.android.material:material:1.11.0")
+
+    // Firebase BOM (Bill of Materials)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-analytics")
+
+    // QR Code Generation and Scanning
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.zxing:core:3.5.2")
 
-    // Firebase BOM (latest stable)
-    implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
+    // Security & Encryption
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Firebase Realtime Database
-    implementation("com.google.firebase:firebase-database")
+    // Password Hashing (BCrypt)
+    implementation("org.mindrot:jbcrypt:0.4")
 
-    // Firebase Analytics (optional)
-    implementation("com.google.firebase:firebase-analytics")
+    // RecyclerView (if not included in appcompat)
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 
-    // Testing
+    // CardView (if not included in material)
+    implementation("androidx.cardview:cardview:1.0.0")
+
+    // Lifecycle components
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel:2.7.0")
+
+    // Testing Dependencies
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test:rules:1.5.0")
 }
 
-// Force Kotlin version to 1.9.22
-configurations.all {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "org.jetbrains.kotlin") {
-            useVersion("1.9.22")
-        }
-    }
-}
+// Apply Google Services plugin at the bottom
+apply(plugin = "com.google.gms.google-services")

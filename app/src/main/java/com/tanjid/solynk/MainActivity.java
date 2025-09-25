@@ -3,6 +3,7 @@ package com.tanjid.solynk;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -10,12 +11,13 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.UUID;
+
 public class MainActivity extends AppCompatActivity {
 
     private Button buttonShowQR, buttonScanQR, buttonStartChat, buttonConnectManual, buttonDisconnect;
     private EditText editTextManualId;
     private TextView textViewConnectionStatus;
-
     private SharedPreferences prefs;
 
     @Override
@@ -34,16 +36,21 @@ public class MainActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences("SoloConnectPrefs", MODE_PRIVATE);
 
+        // *** MAJOR FIX: Generate User ID on first launch ***
+        // This ensures the user always has an ID, which was the main problem.
+        String myUserId = prefs.getString("myUserId", null);
+        if (myUserId == null) {
+            myUserId = UUID.randomUUID().toString();
+            prefs.edit().putString("myUserId", myUserId).apply();
+            Log.d("MainActivity", "New user ID generated: " + myUserId);
+        }
+
         // Update connection status on start
         updateConnectionStatus();
 
-        // Navigate to MyQRActivity
         buttonShowQR.setOnClickListener(v -> startActivity(new Intent(this, MyQRActivity.class)));
-
-        // Navigate to ScanQRActivity
         buttonScanQR.setOnClickListener(v -> startActivity(new Intent(this, ScanQRActivity.class)));
 
-        // Start Chat
         buttonStartChat.setOnClickListener(v -> {
             String connectedUserId = prefs.getString("connectedUserId", null);
             if (connectedUserId != null) {
@@ -53,11 +60,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Manual Connection
         buttonConnectManual.setOnClickListener(v -> {
             String manualId = editTextManualId.getText().toString().trim();
             if (!manualId.isEmpty()) {
-                // Save the new connection ID
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putString("connectedUserId", manualId);
                 editor.apply();
@@ -69,7 +74,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Disconnect
         buttonDisconnect.setOnClickListener(v -> {
             SharedPreferences.Editor editor = prefs.edit();
             editor.remove("connectedUserId");
@@ -88,7 +92,9 @@ public class MainActivity extends AppCompatActivity {
     private void updateConnectionStatus() {
         String connectedUserId = prefs.getString("connectedUserId", null);
         if (connectedUserId != null) {
-            textViewConnectionStatus.setText("Status: Connected to " + connectedUserId);
+            // Shorten the displayed ID for better UI
+            String shortId = connectedUserId.substring(0, 8) + "...";
+            textViewConnectionStatus.setText("Status: Connected to " + shortId);
             buttonStartChat.setEnabled(true);
             buttonDisconnect.setEnabled(true);
         } else {

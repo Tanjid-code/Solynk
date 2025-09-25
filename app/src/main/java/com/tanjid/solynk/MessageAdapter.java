@@ -40,7 +40,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (viewType == VIEW_TYPE_MESSAGE_SENT) {
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_sent, parent, false);
             return new SentMessageViewHolder(view);
-        } else {
+        } else { // viewType == VIEW_TYPE_MESSAGE_RECEIVED
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_received, parent, false);
             return new ReceivedMessageViewHolder(view);
         }
@@ -49,14 +49,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messageList.get(position);
-
-        switch (holder.getItemViewType()) {
-            case VIEW_TYPE_MESSAGE_SENT:
-                ((SentMessageViewHolder) holder).bind(message);
-                break;
-            case VIEW_TYPE_MESSAGE_RECEIVED:
-                ((ReceivedMessageViewHolder) holder).bind(message);
-                break;
+        if (holder.getItemViewType() == VIEW_TYPE_MESSAGE_SENT) {
+            ((SentMessageViewHolder) holder).bind(message);
+        } else {
+            ((ReceivedMessageViewHolder) holder).bind(message);
         }
     }
 

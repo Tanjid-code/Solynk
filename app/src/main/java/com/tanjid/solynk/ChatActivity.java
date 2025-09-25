@@ -8,7 +8,9 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -20,6 +22,7 @@ import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID; // Assuming you're still using UUID for message IDs
 
 public class ChatActivity extends AppCompatActivity {
 
@@ -31,7 +34,8 @@ public class ChatActivity extends AppCompatActivity {
     private List<Message> messageList = new ArrayList<>();
 
     private DatabaseReference messagesRef;
-    private String myUserId, connectedUserId;
+    private String myUserId;
+    private String connectedUserId; // Store this explicitly
     private static final String TAG = "ChatActivity";
 
     @Override
@@ -39,104 +43,120 @@ public class ChatActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
         recyclerView = findViewById(R.id.recyclerView);
         editTextMessage = findViewById(R.id.editTextMessage);
         buttonSend = findViewById(R.id.buttonSend);
 
-        // Retrieve user IDs from SharedPreferences
+        // Load current user's ID and the ID of the user they are connected to
         SharedPreferences prefs = getSharedPreferences("SoloConnectPrefs", MODE_PRIVATE);
         myUserId = prefs.getString("myUserId", null);
         connectedUserId = prefs.getString("connectedUserId", null);
 
-        Log.d(TAG, "onCreate: My User ID retrieved: " + myUserId);
-        Log.d(TAG, "onCreate: Connected User ID retrieved: " + connectedUserId);
-
-        if (myUserId == null || connectedUserId == null) {
-            Toast.makeText(this, "Chat connection failed. Please re-connect.", Toast.LENGTH_LONG).show();
-            Log.e(TAG, "myUserId or connectedUserId is missing. Cannot start chat. Finishing activity.");
-            finish();
+        // Crucial check: Ensure both IDs are available
+        if (myUserId == null || connectedUserId == null || "ID_NOT_FOUND".equals(myUserId) || "ID_NOT_FOUND".equals(connectedUserId)) {
+            Toast.makeText(this, "Chat connection not established. Please ensure both users have scanned each other's QR codes and IDs are saved.", Toast.LENGTH_LONG).show();
+            Log.e(TAG, "Chat initialization failed: myUserId=" + myUserId + ", connectedUserId=" + connectedUserId);
+            finish(); // Close activity if IDs are missing
             return;
         }
 
-        Toast.makeText(this, "Chatting with: " + connectedUserId, Toast.LENGTH_SHORT).show();
+        // Set toolbar title dynamically
+        if (getSupportActionBar() != null) {
+            String displayConnectedId = connectedUserId.length() > 8 ? connectedUserId.substring(0, 8) + "..." : connectedUserId;
+            getSupportActionBar().setTitle("Chat with " + displayConnectedId);
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
 
+        // Generate a consistent chat path for both users
         String chatPath = "chats/" + getChatId(myUserId, connectedUserId);
-        Log.d(TAG, "onCreate: Calculated chat path: " + chatPath);
-
         messagesRef = FirebaseDatabase.getInstance().getReference(chatPath);
+        Log.d(TAG, "Firebase Chat Path: " + chatPath); // Log the path to verify
 
         adapter = new MessageAdapter(messageList, myUserId);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         recyclerView.setLayoutManager(layoutManager);
         recyclerView.setAdapter(adapter);
 
-        // Firebase ChildEventListener
+        // Attach listener for new messages
         messagesRef.addChildEventListener(new ChildEventListener() {
             @Override
-            public void onChildAdded(@NonNull DataSnapshot snapshot, String previousChildName) {
-                Log.d(TAG, "onChildAdded: New message snapshot received. Key: " + snapshot.getKey());
-
-                Message message = snapshot.getValue(Message.class);
-                if (message != null) {
-                    Log.d(TAG, "onChildAdded: Message object successfully parsed. Text: " + message.getText());
-                    // Add message to list and update adapter
-                    messageList.add(message);
-                    adapter.notifyItemInserted(messageList.size() - 1);
-                    recyclerView.scrollToPosition(messageList.size() - 1);
-                } else {
-                    Log.w(TAG, "onChildAdded: Message object is null or failed to parse from snapshot.");
+            public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+                Message encryptedMessage = snapshot.getValue(Message.class);
+                if (encryptedMessage != null) {
+                    try {
+                        String decryptedText = EncryptionHelper.decrypt(encryptedMessage.getText());
+                        Message decryptedMessage = new Message(
+                                decryptedText,
+                                encryptedMessage.getSenderId(),
+                                encryptedMessage.getReceiverId(),
+                                encryptedMessage.getTimestamp()
+                        );
+                        messageList.add(decryptedMessage);
+                        adapter.notifyItemInserted(messageList.size() - 1);
+                        recyclerView.scrollToPosition(messageList.size() - 1);
+                    } catch (Exception e) { // Catch decryption errors
+                        Log.e(TAG, "Decryption failed for message: " + encryptedMessage.getText(), e);
+                        // Optionally, add a placeholder message or skip
+                    }
                 }
             }
-
             @Override
-            public void onChildChanged(@NonNull DataSnapshot snapshot, String previousChildName) {
-                Log.d(TAG, "onChildChanged: Message changed. Key: " + snapshot.getKey());
-            }
-
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) { /* Not strictly needed for simple chat */ }
             @Override
-            public void onChildRemoved(@NonNull DataSnapshot snapshot) {
-                Log.d(TAG, "onChildRemoved: Message removed. Key: " + snapshot.getKey());
-            }
-
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) { /* Not strictly needed for simple chat */ }
             @Override
-            public void onChildMoved(@NonNull DataSnapshot snapshot, String previousChildName) {
-                Log.d(TAG, "onChildMoved: Message moved. Key: " + snapshot.getKey());
-            }
-
+            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) { /* Not strictly needed for simple chat */ }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Firebase chat listener cancelled: " + error.getMessage() + " (Code: " + error.getCode() + ")");
+                Log.e(TAG, "Firebase listener cancelled: " + error.getMessage() + ", Details: " + error.getDetails());
                 Toast.makeText(ChatActivity.this, "Failed to load messages: " + error.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
 
-        // Send button click listener
         buttonSend.setOnClickListener(v -> {
-            String text = editTextMessage.getText().toString().trim();
-            if (!text.isEmpty()) {
-                Message message = new Message(text, myUserId, connectedUserId, System.currentTimeMillis());
-                Log.d(TAG, "buttonSend: Attempting to send message. Text: '" + text + "', Sender: '" + myUserId + "', Receiver: '" + connectedUserId + "'");
-
-                messagesRef.push().setValue(message, (databaseError, databaseReference) -> {
-                    if (databaseError != null) {
-                        Log.e(TAG, "Failed to send message to Firebase: " + databaseError.getMessage());
-                        Toast.makeText(ChatActivity.this, "Error sending: " + databaseError.getMessage(), Toast.LENGTH_LONG).show();
-                    } else {
-                        Log.d(TAG, "Message successfully pushed to Firebase. Path: " + databaseReference.getPath());
-                        editTextMessage.setText(""); // Clear input only on success
-                    }
-                });
+            String plainText = editTextMessage.getText().toString().trim();
+            if (!plainText.isEmpty()) {
+                try {
+                    String encryptedText = EncryptionHelper.encrypt(plainText);
+                    // Use the correct myUserId and connectedUserId
+                    Message message = new Message(encryptedText, myUserId, connectedUserId, System.currentTimeMillis());
+                    // Push the message to the database
+                    messagesRef.push().setValue(message).addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            editTextMessage.setText(""); // Clear input field
+                        } else {
+                            Toast.makeText(ChatActivity.this, "Failed to send message.", Toast.LENGTH_SHORT).show();
+                            Log.e(TAG, "Failed to send message: ", task.getException());
+                        }
+                    });
+                } catch (Exception e) { // Catch encryption errors
+                    Log.e(TAG, "Encryption failed for message: " + plainText, e);
+                    Toast.makeText(ChatActivity.this, "Failed to encrypt message.", Toast.LENGTH_SHORT).show();
+                }
             } else {
-                Log.d(TAG, "buttonSend: Message text is empty, not sending.");
+                Toast.makeText(ChatActivity.this, "Message cannot be empty.", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
+    /**
+     * Generates a unique chat ID by sorting the two user IDs lexicographically.
+     * This ensures both users will arrive at the same chat path in Firebase.
+     */
     private String getChatId(String user1, String user2) {
         if (user1.compareTo(user2) < 0) {
             return user1 + "_" + user2;
         } else {
             return user2 + "_" + user1;
         }
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        onBackPressed();
+        return true;
     }
 }

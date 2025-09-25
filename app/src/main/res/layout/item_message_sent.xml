@@ -2,12 +2,20 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:orientation="vertical"
     android:gravity="end"
-    android:padding="4dp"> <TextView
-    android:id="@+id/textViewMessage"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:background="@drawable/bg_message_sent"
-    android:padding="10dp"
-    android:textColor="#FFFFFF"
-    android:maxWidth="260dp" android:textSize="16sp"/> </LinearLayout>
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
+    android:paddingEnd="8dp"
+    android:paddingStart="60dp">
+
+    <TextView
+        android:id="@+id/textViewMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_message_sent"
+        android:padding="12dp"
+        android:textColor="@color/white"
+        android:textSize="16sp"/>
+
+</LinearLayout>

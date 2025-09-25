@@ -7,13 +7,7 @@ public class Message {
     private long timestamp;
 
     public Message() {
-    }
-
-    public Message(String text, String senderId, String receiverId) {
-        this.text = text;
-        this.senderId = senderId;
-        this.receiverId = receiverId;
-        this.timestamp = System.currentTimeMillis();
+        // Default constructor required for calls to DataSnapshot.getValue(Message.class)
     }
 
     public Message(String text, String senderId, String receiverId, long timestamp) {
@@ -27,28 +21,28 @@ public class Message {
         return text;
     }
 
-    public String getSenderId() {
-        return senderId;
-    }
-
-    public String getReceiverId() {
-        return receiverId;
-    }
-
-    public long getTimestamp() {
-        return timestamp;
-    }
-
     public void setText(String text) {
         this.text = text;
+    }
+
+    public String getSenderId() {
+        return senderId;
     }
 
     public void setSenderId(String senderId) {
         this.senderId = senderId;
     }
 
+    public String getReceiverId() {
+        return receiverId;
+    }
+
     public void setReceiverId(String receiverId) {
         this.receiverId = receiverId;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 
     public void setTimestamp(long timestamp) {

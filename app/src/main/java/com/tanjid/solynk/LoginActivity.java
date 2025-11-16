@@ -15,6 +15,8 @@ import com.google.android.material.textfield.TextInputLayout;
 
 public class LoginActivity extends AppCompatActivity {
 
+    private static final String TAG = "LoginActivity";
+
     private TextInputEditText editTextUsername, editTextPassword, editTextConfirmPassword;
     private TextInputLayout layoutConfirmPassword;
     private MaterialButton buttonSubmit;
@@ -43,10 +45,8 @@ public class LoginActivity extends AppCompatActivity {
         textViewToggle = findViewById(R.id.textViewToggle);
         progressBar = findViewById(R.id.progressBar);
 
-        // Check if user is registered
-        if (!userManager.isRegistered()) {
-            switchToRegisterMode();
-        }
+        // Default to login mode
+        switchToLoginMode();
 
         // Submit button click
         buttonSubmit.setOnClickListener(v -> {
@@ -88,9 +88,9 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void clearFields() {
-        editTextUsername.setText("");
-        editTextPassword.setText("");
-        editTextConfirmPassword.setText("");
+        if (editTextUsername != null) editTextUsername.setText("");
+        if (editTextPassword != null) editTextPassword.setText("");
+        if (editTextConfirmPassword != null) editTextConfirmPassword.setText("");
     }
 
     private void performLogin() {
@@ -113,21 +113,25 @@ public class LoginActivity extends AppCompatActivity {
         // Show progress
         showProgress(true);
 
-        // Perform login in background (simulating async operation)
-        new Thread(() -> {
-            boolean success = userManager.login(username, password);
-
-            runOnUiThread(() -> {
-                showProgress(false);
-
-                if (success) {
-                    Toast.makeText(this, "Login successful!", Toast.LENGTH_SHORT).show();
+        // Perform login via Firebase
+        userManager.login(username, password, new UserManager.AuthCallback() {
+            @Override
+            public void onSuccess(String message) {
+                runOnUiThread(() -> {
+                    showProgress(false);
+                    Toast.makeText(LoginActivity.this, message, Toast.LENGTH_SHORT).show();
                     navigateToMain();
-                } else {
-                    Toast.makeText(this, getString(R.string.login_failed), Toast.LENGTH_SHORT).show();
-                }
-            });
-        }).start();
+                });
+            }
+
+            @Override
+            public void onFailure(String error) {
+                runOnUiThread(() -> {
+                    showProgress(false);
+                    Toast.makeText(LoginActivity.this, error, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
     }
 
     private void performRegister() {
@@ -138,6 +142,12 @@ public class LoginActivity extends AppCompatActivity {
         // Validation
         if (username.isEmpty()) {
             editTextUsername.setError(getString(R.string.username_required));
+            editTextUsername.requestFocus();
+            return;
+        }
+
+        if (username.length() < 3) {
+            editTextUsername.setError("Username must be at least 3 characters");
             editTextUsername.requestFocus();
             return;
         }
@@ -163,26 +173,34 @@ public class LoginActivity extends AppCompatActivity {
         // Show progress
         showProgress(true);
 
-        // Perform registration in background
-        new Thread(() -> {
-            boolean success = userManager.register(username, password);
-
-            runOnUiThread(() -> {
-                showProgress(false);
-
-                if (success) {
-                    Toast.makeText(this, getString(R.string.registration_success), Toast.LENGTH_SHORT).show();
+        // Perform registration via Firebase
+        userManager.register(username, password, new UserManager.AuthCallback() {
+            @Override
+            public void onSuccess(String message) {
+                runOnUiThread(() -> {
+                    showProgress(false);
+                    Toast.makeText(LoginActivity.this, message, Toast.LENGTH_SHORT).show();
                     switchToLoginMode();
-                } else {
-                    Toast.makeText(this, getString(R.string.user_exists), Toast.LENGTH_SHORT).show();
-                }
-            });
-        }).start();
+                });
+            }
+
+            @Override
+            public void onFailure(String error) {
+                runOnUiThread(() -> {
+                    showProgress(false);
+                    Toast.makeText(LoginActivity.this, error, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
     }
 
     private void showProgress(boolean show) {
-        progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-        buttonSubmit.setEnabled(!show);
+        if (progressBar != null) {
+            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
+        if (buttonSubmit != null) {
+            buttonSubmit.setEnabled(!show);
+        }
     }
 
     private void navigateToMain() {
@@ -194,11 +212,7 @@ public class LoginActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        // Prevent going back if not registered
-        if (!userManager.isRegistered()) {
-            finishAffinity();
-        } else {
-            super.onBackPressed();
-        }
+        // Allow back press
+        super.onBackPressed();
     }
 }

@@ -14,7 +14,8 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -162,9 +163,18 @@ public class MainActivity extends AppCompatActivity {
 
         executorService.execute(() -> {
             try {
-                if (!RSAEncryptionHelper.keysExist(this)) {
-                    Log.d(TAG, "RSA keys not found, generating...");
+                // Check if keys exist in SharedPreferences
+                String publicKey = prefs.getString("publicKey", null);
+
+                if (publicKey == null || publicKey.isEmpty()) {
+                    Log.d(TAG, "RSA keys not found in local storage, generating...");
+
+                    // Generate new keys
                     RSAEncryptionHelper.generateAndStoreKeyPair(this);
+                    publicKey = RSAEncryptionHelper.getPublicKeyString(this);
+
+                    // Update user's public key in Firebase
+                    updatePublicKeyInFirebase(publicKey);
 
                     mainHandler.post(() -> {
                         Toast.makeText(this, "Encryption keys generated", Toast.LENGTH_SHORT).show();
@@ -182,6 +192,19 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void updatePublicKeyInFirebase(String publicKey) {
+        String username = userManager.getUsername();
+        if (username != null && publicKey != null) {
+            DatabaseReference userRef = FirebaseDatabase.getInstance()
+                    .getReference("users")
+                    .child(username);
+
+            userRef.child("publicKey").setValue(publicKey)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "Public key updated in Firebase"))
+                    .addOnFailureListener(e -> Log.e(TAG, "Failed to update public key", e));
+        }
     }
 
     private void setupButtonListeners() {

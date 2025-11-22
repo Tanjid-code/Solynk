@@ -1,5 +1,7 @@
 package com.tanjid.solynk;
 
+import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,15 +17,18 @@ import java.util.Locale;
 
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
+    private static final String TAG = "MessageAdapter";
     private List<Message> messageList;
     private String myUserId;
+    private Context context;
 
     private static final int VIEW_TYPE_MESSAGE_SENT = 1;
     private static final int VIEW_TYPE_MESSAGE_RECEIVED = 2;
 
-    public MessageAdapter(List<Message> messageList, String myUserId) {
+    public MessageAdapter(List<Message> messageList, String myUserId, Context context) {
         this.messageList = messageList;
         this.myUserId = myUserId;
+        this.context = context;
     }
 
     @Override
@@ -55,9 +60,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messageList.get(position);
         if (holder.getItemViewType() == VIEW_TYPE_MESSAGE_SENT) {
-            ((SentMessageViewHolder) holder).bind(message);
+            ((SentMessageViewHolder) holder).bind(message, context);
         } else {
-            ((ReceivedMessageViewHolder) holder).bind(message);
+            ((ReceivedMessageViewHolder) holder).bind(message, context);
         }
     }
 
@@ -75,8 +80,28 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             textViewTimestamp = itemView.findViewById(R.id.textViewTimestamp);
         }
 
-        void bind(Message message) {
-            textViewMessage.setText(message.getText());
+        void bind(Message message, Context context) {
+            String displayText;
+
+            // For SENT messages, decrypt using senderCopy (encrypted with MY public key)
+            String encryptedText = message.getSenderCopy();
+
+            if (encryptedText == null || encryptedText.isEmpty()) {
+                // Fallback for old messages
+                encryptedText = message.getText();
+                Log.w(TAG, "SenderCopy is null, using text field");
+            }
+
+            // Decrypt the message
+            try {
+                displayText = RSAEncryptionHelper.decrypt(context, encryptedText);
+                Log.d(TAG, "✓ Sent message decrypted successfully");
+            } catch (Exception e) {
+                displayText = "[Cannot decrypt message]";
+                Log.e(TAG, "✗ Failed to decrypt sent message", e);
+            }
+
+            textViewMessage.setText(displayText);
             textViewTimestamp.setText(formatTime(message.getTimestamp()));
         }
     }
@@ -90,8 +115,22 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             textViewTimestamp = itemView.findViewById(R.id.textViewTimestamp);
         }
 
-        void bind(Message message) {
-            textViewMessage.setText(message.getText());
+        void bind(Message message, Context context) {
+            String displayText;
+
+            // For RECEIVED messages, decrypt using text (encrypted with MY public key)
+            String encryptedText = message.getText();
+
+            // Decrypt the message
+            try {
+                displayText = RSAEncryptionHelper.decrypt(context, encryptedText);
+                Log.d(TAG, "✓ Received message decrypted successfully");
+            } catch (Exception e) {
+                displayText = "[Cannot decrypt message]";
+                Log.e(TAG, "✗ Failed to decrypt received message", e);
+            }
+
+            textViewMessage.setText(displayText);
             textViewTimestamp.setText(formatTime(message.getTimestamp()));
         }
     }

@@ -16,6 +16,8 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class UserManager {
 
@@ -28,6 +30,7 @@ public class UserManager {
     private SharedPreferences prefs;
     private Context context;
     private DatabaseReference usersRef;
+    private ExecutorService executorService;
 
     public interface AuthCallback {
         void onSuccess(String message);
@@ -38,6 +41,7 @@ public class UserManager {
         this.context = context;
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         this.usersRef = FirebaseDatabase.getInstance().getReference("users");
+        this.executorService = Executors.newSingleThreadExecutor();
     }
 
     /**
@@ -82,49 +86,68 @@ public class UserManager {
     /**
      * Create new user in Firebase
      */
+    /**
+     * Create new user in Firebase
+     */
     private void createUser(String username, String password, AuthCallback callback) {
-        try {
-            // Generate unique user ID
-            String userId = UUID.randomUUID().toString();
+        // Run password hashing in background thread (Argon2 is CPU-intensive)
+        executorService.execute(() -> {
+            try {
+                // Generate unique user ID
+                String userId = UUID.randomUUID().toString();
 
-            // Generate salt and hash password
-            String salt = PasswordHashHelper.generateSalt();
-            String passwordHash = PasswordHashHelper.hashPassword(password, salt);
+                // Hash password with Argon2id (salt is included in the hash)
+                Log.d(TAG, "Hashing password with Argon2id...");
+                String passwordHash = PasswordHashHelper.hashPassword(password);
+                Log.d(TAG, "Password hashed successfully");
 
-            // Generate RSA keys
-            RSAEncryptionHelper.generateAndStoreKeyPair(context);
-            String publicKey = RSAEncryptionHelper.getPublicKeyString(context);
+                // Generate RSA keys (only if they don't exist or are invalid)
+                Log.d(TAG, "Checking RSA keys...");
+                RSAEncryptionHelper.generateAndStoreKeyPair(context);
 
-            if (publicKey == null) {
-                callback.onFailure("Failed to generate encryption keys");
-                return;
+                // Validate keys before proceeding
+                if (!RSAEncryptionHelper.validateKeyPair(context)) {
+                    callback.onFailure("Failed to generate valid encryption keys. Please try again.");
+                    return;
+                }
+
+                String publicKey = RSAEncryptionHelper.getPublicKeyString(context);
+
+                if (publicKey == null) {
+                    callback.onFailure("Failed to retrieve encryption keys");
+                    return;
+                }
+
+                Log.d(TAG, "✓ RSA keys validated successfully");
+
+                // Create user object (NO SEPARATE SALT - it's in the hash)
+                Map<String, Object> userData = new HashMap<>();
+                userData.put("userId", userId);
+                userData.put("username", username);
+                userData.put("passwordHash", passwordHash);
+                userData.put("publicKey", publicKey);
+                userData.put("createdAt", System.currentTimeMillis());
+
+                // Save to Firebase using username as key
+                usersRef.child(username).setValue(userData)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "User registered successfully: " + username);
+
+                            // Save userId locally
+                            prefs.edit().putString(KEY_USER_ID, userId).apply();
+
+                            callback.onSuccess("Registration successful! Please login.");
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "Failed to save user to Firebase", e);
+                            callback.onFailure("Registration failed: " + e.getMessage());
+                        });
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error during user creation", e);
+                callback.onFailure("Registration error: " + e.getMessage());
             }
-
-            // Create user object
-            User user = new User(
-                    userId,
-                    username,
-                    passwordHash,
-                    salt,
-                    publicKey,
-                    System.currentTimeMillis()
-            );
-
-            // Save to Firebase using username as key (for easy lookup)
-            usersRef.child(username).setValue(user)
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "User registered successfully in Firebase: " + username);
-                        callback.onSuccess("Registration successful!");
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to save user to Firebase", e);
-                        callback.onFailure("Registration failed: " + e.getMessage());
-                    });
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error during user creation", e);
-            callback.onFailure("Registration error: " + e.getMessage());
-        }
+        });
     }
 
     /**
@@ -153,51 +176,54 @@ public class UserManager {
                     return;
                 }
 
-                try {
-                    User user = snapshot.getValue(User.class);
+                // Run password verification in background thread
+                executorService.execute(() -> {
+                    try {
+                        String userId = snapshot.child("userId").getValue(String.class);
+                        String storedUsername = snapshot.child("username").getValue(String.class);
+                        String passwordHash = snapshot.child("passwordHash").getValue(String.class);
+                        String publicKey = snapshot.child("publicKey").getValue(String.class);
 
-                    if (user == null) {
-                        callback.onFailure("Error loading user data");
-                        return;
+                        if (passwordHash == null) {
+                            callback.onFailure("Error loading user data");
+                            return;
+                        }
+
+                        // Verify password with Argon2id
+                        Log.d(TAG, "Verifying password...");
+                        boolean passwordValid = PasswordHashHelper.verifyPassword(password, passwordHash);
+
+                        if (!passwordValid) {
+                            callback.onFailure("Invalid password");
+                            Log.w(TAG, "Login failed: Invalid password");
+                            return;
+                        }
+
+                        // Password is correct - update last login
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("lastLogin", System.currentTimeMillis());
+                        usersRef.child(cleanUsername).updateChildren(updates);
+
+                        // Save session locally
+                        prefs.edit()
+                                .putString(KEY_USERNAME, storedUsername != null ? storedUsername : cleanUsername)
+                                .putString(KEY_USER_ID, userId)
+                                .putBoolean(KEY_IS_LOGGED_IN, true)
+                                .apply();
+
+                        // Store public key locally
+                        if (publicKey != null) {
+                            prefs.edit().putString("publicKey", publicKey).apply();
+                        }
+
+                        Log.d(TAG, "User logged in successfully: " + cleanUsername);
+                        callback.onSuccess("Login successful!");
+
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing login", e);
+                        callback.onFailure("Login error: " + e.getMessage());
                     }
-
-                    // Verify password
-                    boolean passwordValid = PasswordHashHelper.verifyPassword(
-                            password,
-                            user.getPasswordHash(),
-                            user.getSalt()
-                    );
-
-                    if (!passwordValid) {
-                        callback.onFailure("Invalid password");
-                        Log.w(TAG, "Login failed: Invalid password");
-                        return;
-                    }
-
-                    // Password is correct - update last login
-                    Map<String, Object> updates = new HashMap<>();
-                    updates.put("lastLogin", System.currentTimeMillis());
-                    usersRef.child(cleanUsername).updateChildren(updates);
-
-                    // Save session locally
-                    prefs.edit()
-                            .putString(KEY_USERNAME, user.getUsername())
-                            .putString(KEY_USER_ID, user.getUserId())
-                            .putBoolean(KEY_IS_LOGGED_IN, true)
-                            .apply();
-
-                    // Store public key locally
-                    if (user.getPublicKey() != null) {
-                        prefs.edit().putString("publicKey", user.getPublicKey()).apply();
-                    }
-
-                    Log.d(TAG, "User logged in successfully: " + cleanUsername);
-                    callback.onSuccess("Login successful!");
-
-                } catch (Exception e) {
-                    Log.e(TAG, "Error processing login", e);
-                    callback.onFailure("Login error: " + e.getMessage());
-                }
+                });
             }
 
             @Override
@@ -269,5 +295,14 @@ public class UserManager {
                     Log.e(TAG, "Failed to delete account", e);
                     callback.onFailure("Failed to delete account: " + e.getMessage());
                 });
+    }
+
+    /**
+     * Clean up resources
+     */
+    public void cleanup() {
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
     }
 }

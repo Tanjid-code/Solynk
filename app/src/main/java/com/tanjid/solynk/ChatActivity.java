@@ -57,55 +57,25 @@ public class ChatActivity extends AppCompatActivity {
         try {
             Log.d(TAG, "=== ChatActivity onCreate START ===");
 
-            // Step 1: Set content view
-            Log.d(TAG, "Step 1: Setting content view");
             setContentView(R.layout.activity_chat);
 
-            // Step 2: Load user data FIRST (before initializing views)
-            Log.d(TAG, "Step 2: Loading user data");
             if (!loadUserData()) {
-                Log.e(TAG, "FAILED: User data loading failed");
                 return;
             }
-            Log.d(TAG, "SUCCESS: User data loaded");
 
-            // Step 3: Initialize views
-            Log.d(TAG, "Step 3: Initializing views");
             if (!initializeViews()) {
-                Log.e(TAG, "FAILED: Views initialization failed");
                 return;
             }
-            Log.d(TAG, "SUCCESS: All views initialized");
 
-            // Step 4: Setup toolbar (non-critical)
-            Log.d(TAG, "Step 4: Setting up toolbar");
             setupToolbar();
-            Log.d(TAG, "SUCCESS: Toolbar setup complete");
-
-            // Step 5: Setup RecyclerView
-            Log.d(TAG, "Step 5: Setting up RecyclerView");
             setupRecyclerView();
-            Log.d(TAG, "SUCCESS: RecyclerView setup complete");
 
-            // Step 6: Initialize Firebase
-            Log.d(TAG, "Step 6: Initializing Firebase");
             if (!initializeFirebase()) {
-                Log.e(TAG, "FAILED: Firebase initialization failed");
                 return;
             }
-            Log.d(TAG, "SUCCESS: Firebase initialized");
 
-            // Step 7: Setup message listener
-            Log.d(TAG, "Step 7: Setting up message listener");
             setupMessageListener();
-            Log.d(TAG, "SUCCESS: Message listener setup complete");
-
-            // Step 8: Setup send button
-            Log.d(TAG, "Step 8: Setting up send button");
             setupSendButton();
-            Log.d(TAG, "SUCCESS: Send button setup complete");
-
-            // Step 9: Update empty state
             updateEmptyState();
 
             Log.d(TAG, "=== ChatActivity initialized SUCCESSFULLY ===");
@@ -121,27 +91,16 @@ public class ChatActivity extends AppCompatActivity {
             toolbar = findViewById(R.id.toolbar);
 
             if (toolbar == null) {
-                Log.w(TAG, "WARNING: Toolbar not found - continuing without it");
-                // Try to set title using default ActionBar
-                try {
-                    if (getSupportActionBar() != null) {
-                        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-                        getSupportActionBar().setTitle("Chat");
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "Could not set default ActionBar", e);
-                }
+                Log.w(TAG, "WARNING: Toolbar not found");
                 return;
             }
 
-            Log.d(TAG, "Toolbar found, setting as ActionBar");
             setSupportActionBar(toolbar);
 
             if (getSupportActionBar() != null) {
                 getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                 getSupportActionBar().setDisplayShowHomeEnabled(true);
 
-                // Set title with connected user info
                 if (connectedUserId != null) {
                     String displayId = connectedUserId.length() > 8
                             ? connectedUserId.substring(0, 8) + "..."
@@ -150,54 +109,26 @@ public class ChatActivity extends AppCompatActivity {
                 } else {
                     getSupportActionBar().setTitle("Chat");
                 }
-
-                Log.d(TAG, "ActionBar configured successfully");
-            } else {
-                Log.w(TAG, "getSupportActionBar() returned null");
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Exception in setupToolbar (non-critical): " + e.getMessage(), e);
-            // Don't crash - toolbar is not critical for functionality
+            Log.e(TAG, "Exception in setupToolbar: " + e.getMessage(), e);
         }
     }
 
     private boolean initializeViews() {
         try {
-            Log.d(TAG, "Finding views by ID...");
-
             recyclerView = findViewById(R.id.recyclerView);
-            Log.d(TAG, "recyclerView: " + (recyclerView != null ? "✓ FOUND" : "✗ NULL"));
-
             editTextMessage = findViewById(R.id.editTextMessage);
-            Log.d(TAG, "editTextMessage: " + (editTextMessage != null ? "✓ FOUND" : "✗ NULL"));
-
             buttonSend = findViewById(R.id.buttonSend);
-            Log.d(TAG, "buttonSend: " + (buttonSend != null ? "✓ FOUND" : "✗ NULL"));
-
             emptyStateView = findViewById(R.id.emptyStateView);
-            Log.d(TAG, "emptyStateView: " + (emptyStateView != null ? "✓ FOUND" : "✗ NULL"));
-
             progressBar = findViewById(R.id.progressBar);
-            Log.d(TAG, "progressBar: " + (progressBar != null ? "✓ FOUND" : "✗ NULL"));
 
-            // Check critical views
-            if (recyclerView == null) {
-                showErrorAndFinish("RecyclerView not found in layout. Please check activity_chat.xml");
+            if (recyclerView == null || editTextMessage == null || buttonSend == null) {
+                showErrorAndFinish("Critical views not found in layout");
                 return false;
             }
 
-            if (editTextMessage == null) {
-                showErrorAndFinish("Message input not found in layout. Please check activity_chat.xml");
-                return false;
-            }
-
-            if (buttonSend == null) {
-                showErrorAndFinish("Send button not found in layout. Please check activity_chat.xml");
-                return false;
-            }
-
-            Log.d(TAG, "All critical views found successfully");
             return true;
 
         } catch (Exception e) {
@@ -214,36 +145,20 @@ public class ChatActivity extends AppCompatActivity {
             myUserId = prefs.getString("myUserId", null);
             connectedUserId = prefs.getString("connectedUserId", null);
             connectedUserPublicKey = prefs.getString("connectedUserPublicKey", null);
+            myPublicKey = RSAEncryptionHelper.getPublicKeyString(this);
 
-            try {
-                myPublicKey = RSAEncryptionHelper.getPublicKeyString(this);
-            } catch (Exception e) {
-                Log.e(TAG, "Error getting public key", e);
-                myPublicKey = null;
-            }
+            Log.d(TAG, "myUserId: " + (myUserId != null ? "EXISTS" : "NULL"));
+            Log.d(TAG, "myPublicKey: " + (myPublicKey != null ? "EXISTS" : "NULL"));
+            Log.d(TAG, "connectedUserId: " + (connectedUserId != null ? "EXISTS" : "NULL"));
+            Log.d(TAG, "connectedUserPublicKey: " + (connectedUserPublicKey != null ? "EXISTS" : "NULL"));
 
-            Log.d(TAG, "myUserId: " + (myUserId != null ? "✓ EXISTS (" + myUserId.substring(0, Math.min(8, myUserId.length())) + "...)" : "✗ NULL"));
-            Log.d(TAG, "myPublicKey: " + (myPublicKey != null ? "✓ EXISTS" : "✗ NULL"));
-            Log.d(TAG, "connectedUserId: " + (connectedUserId != null ? "✓ EXISTS (" + connectedUserId.substring(0, Math.min(8, connectedUserId.length())) + "...)" : "✗ NULL"));
-            Log.d(TAG, "connectedUserPublicKey: " + (connectedUserPublicKey != null ? "✓ EXISTS" : "✗ NULL"));
-
-            if (myUserId == null || myUserId.isEmpty()) {
-                showErrorAndFinish("Your user ID not found. Please logout and login again.");
+            if (myUserId == null || myPublicKey == null) {
+                showErrorAndFinish("Your user data not found. Please logout and login again.");
                 return false;
             }
 
-            if (myPublicKey == null || myPublicKey.isEmpty()) {
-                showErrorAndFinish("Your encryption key not found. Please logout and login again.");
-                return false;
-            }
-
-            if (connectedUserId == null || connectedUserId.isEmpty()) {
+            if (connectedUserId == null || connectedUserPublicKey == null) {
                 showErrorAndFinish("Connected user not found. Please connect via QR code first.");
-                return false;
-            }
-
-            if (connectedUserPublicKey == null || connectedUserPublicKey.isEmpty()) {
-                showErrorAndFinish("Connected user's key not found. Please scan QR code again.");
                 return false;
             }
 
@@ -258,7 +173,8 @@ public class ChatActivity extends AppCompatActivity {
 
     private void setupRecyclerView() {
         try {
-            adapter = new MessageAdapter(messageList, myUserId);
+            // Pass context to adapter for decryption
+            adapter = new MessageAdapter(messageList, myUserId, this);
             LinearLayoutManager layoutManager = new LinearLayoutManager(this);
             layoutManager.setStackFromEnd(true);
             recyclerView.setLayoutManager(layoutManager);
@@ -299,54 +215,16 @@ public class ChatActivity extends AppCompatActivity {
                 showLoading(false);
 
                 try {
-                    Message encryptedMessage = snapshot.getValue(Message.class);
-                    if (encryptedMessage == null) {
+                    Message message = snapshot.getValue(Message.class);
+                    if (message == null) {
                         Log.w(TAG, "Received null message from Firebase");
                         return;
                     }
 
-                    String decryptedText;
-                    try {
-                        // Check if this message was sent by me
-                        boolean isSentByMe = encryptedMessage.getSenderId() != null
-                                && encryptedMessage.getSenderId().equals(myUserId);
+                    // DO NOT decrypt here - let MessageAdapter handle decryption
+                    // Just add the encrypted message to the list
+                    messageList.add(message);
 
-                        if (isSentByMe) {
-                            // I sent this message - decrypt using senderCopy (encrypted with MY public key)
-                            if (encryptedMessage.getSenderCopy() != null && !encryptedMessage.getSenderCopy().isEmpty()) {
-                                decryptedText = RSAEncryptionHelper.decrypt(
-                                        ChatActivity.this,
-                                        encryptedMessage.getSenderCopy()
-                                );
-                                Log.d(TAG, "✓ Decrypted my own message using senderCopy");
-                            } else {
-                                // Fallback for old messages without senderCopy
-                                decryptedText = "[Your message - old format]";
-                                Log.w(TAG, "SenderCopy not available for my message (old format)");
-                            }
-                        } else {
-                            // They sent this message - decrypt using main text (encrypted with MY public key)
-                            decryptedText = RSAEncryptionHelper.decrypt(
-                                    ChatActivity.this,
-                                    encryptedMessage.getText()
-                            );
-                            Log.d(TAG, "✓ Decrypted received message");
-                        }
-
-                    } catch (Exception e) {
-                        Log.e(TAG, "Message decryption failed", e);
-                        decryptedText = "[Could not decrypt message]";
-                    }
-
-                    Message decryptedMessage = new Message(
-                            decryptedText,
-                            encryptedMessage.getSenderId(),
-                            encryptedMessage.getReceiverId(),
-                            encryptedMessage.getTimestamp(),
-                            encryptedMessage.getSenderPublicKey()
-                    );
-
-                    messageList.add(decryptedMessage);
                     if (adapter != null) {
                         adapter.notifyItemInserted(messageList.size() - 1);
                     }
@@ -355,7 +233,7 @@ public class ChatActivity extends AppCompatActivity {
                     }
                     updateEmptyState();
 
-                    Log.d(TAG, "Message received and processed");
+                    Log.d(TAG, "Message added to list (encrypted)");
 
                 } catch (Exception e) {
                     Log.e(TAG, "Error processing incoming message", e);
@@ -413,39 +291,82 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        if (plainText.length() > 500) {
-            Toast.makeText(this, "Message too long. Maximum 500 characters.", Toast.LENGTH_SHORT).show();
+        if (plainText.length() > 190) {
+            Toast.makeText(this, "Message too long. Maximum 190 characters.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Disable send button temporarily
         if (buttonSend != null) {
             buttonSend.setEnabled(false);
         }
 
         try {
-            Log.d(TAG, "Encrypting message for receiver...");
-            // Encrypt with RECEIVER's public key (so they can decrypt with their private key)
-            String encryptedForReceiver = RSAEncryptionHelper.encrypt(plainText, connectedUserPublicKey);
+            Log.d(TAG, "=== ENCRYPTION DEBUG ===");
+            Log.d(TAG, "Plain text: " + plainText);
+            Log.d(TAG, "My UserId: " + myUserId);
+            Log.d(TAG, "Connected UserId: " + connectedUserId);
 
-            Log.d(TAG, "Encrypting message for myself (sender copy)...");
-            // Encrypt with MY public key (so I can decrypt with my private key)
+            // CHECK 1: Verify keys exist
+            if (myPublicKey == null || myPublicKey.isEmpty()) {
+                throw new Exception("Your public key is missing!");
+            }
+            if (connectedUserPublicKey == null || connectedUserPublicKey.isEmpty()) {
+                throw new Exception("Connected user's public key is missing!");
+            }
+
+            Log.d(TAG, "My Public Key (first 50): " + myPublicKey.substring(0, Math.min(50, myPublicKey.length())));
+            Log.d(TAG, "Connected Public Key (first 50): " + connectedUserPublicKey.substring(0, Math.min(50, connectedUserPublicKey.length())));
+
+            // CHECK 2: Are the keys the same? (They should be DIFFERENT!)
+            if (myPublicKey.equals(connectedUserPublicKey)) {
+                Toast.makeText(this, "ERROR: You're using the same key for both users!", Toast.LENGTH_LONG).show();
+                Log.e(TAG, "✗✗✗ SAME PUBLIC KEY ERROR ✗✗✗");
+                if (buttonSend != null) buttonSend.setEnabled(true);
+                return;
+            }
+
+            Log.d(TAG, "✓ Keys are different (correct!)");
+
+            // Encrypt with RECEIVER's public key
+            String encryptedForReceiver = RSAEncryptionHelper.encrypt(plainText, connectedUserPublicKey);
+            Log.d(TAG, "✓ Encrypted for receiver, length: " + encryptedForReceiver.length());
+
+            // Encrypt with MY public key (sender copy)
             String encryptedForSender = RSAEncryptionHelper.encrypt(plainText, myPublicKey);
+            Log.d(TAG, "✓ Encrypted for sender, length: " + encryptedForSender.length());
+
+            // CHECK 3: Test decrypt immediately (THIS IS THE KEY TEST!)
+            try {
+                String testDecrypt = RSAEncryptionHelper.decrypt(this, encryptedForSender);
+                if (testDecrypt.equals(plainText)) {
+                    Log.d(TAG, "✓✓✓ TEST DECRYPT WORKS! Message: " + testDecrypt);
+                    Toast.makeText(this, "Encryption test passed!", Toast.LENGTH_SHORT).show();
+                } else {
+                    Log.e(TAG, "✗✗✗ DECRYPTED TEXT DOESN'T MATCH!");
+                    Toast.makeText(this, "ERROR: Decryption mismatch!", Toast.LENGTH_LONG).show();
+                    if (buttonSend != null) buttonSend.setEnabled(true);
+                    return;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "✗✗✗ TEST DECRYPT FAILED", e);
+                Toast.makeText(this, "ERROR: Cannot decrypt with your own key! " + e.getMessage(), Toast.LENGTH_LONG).show();
+                if (buttonSend != null) buttonSend.setEnabled(true);
+                return;
+            }
 
             // Create message with BOTH encrypted versions
             Message message = new Message(
-                    encryptedForReceiver,    // text - encrypted for receiver
-                    encryptedForSender,      // senderCopy - encrypted for sender
+                    encryptedForReceiver,    // text - for receiver to decrypt
+                    encryptedForSender,      // senderCopy - for sender to decrypt
                     myUserId,
                     connectedUserId,
                     System.currentTimeMillis(),
                     myPublicKey
             );
 
-            Log.d(TAG, "Sending message to Firebase...");
+            Log.d(TAG, "Sending to Firebase...");
             if (messagesRef != null) {
                 messagesRef.push().setValue(message).addOnCompleteListener(task -> {
-                    // Re-enable send button
                     if (buttonSend != null) {
                         buttonSend.setEnabled(true);
                     }
@@ -454,7 +375,8 @@ public class ChatActivity extends AppCompatActivity {
                         if (editTextMessage != null) {
                             editTextMessage.setText("");
                         }
-                        Log.d(TAG, "✓ Message sent successfully (with sender copy)");
+                        Toast.makeText(this, "✓ Message sent", Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "✓ Message sent successfully");
                     } else {
                         Toast.makeText(this, "Failed to send message", Toast.LENGTH_SHORT).show();
                         Log.e(TAG, "✗ Message send failed", task.getException());
@@ -463,22 +385,19 @@ public class ChatActivity extends AppCompatActivity {
             }
 
         } catch (Exception e) {
-            // Re-enable send button on error
             if (buttonSend != null) {
                 buttonSend.setEnabled(true);
             }
             Log.e(TAG, "Message encryption/send error", e);
-            Toast.makeText(this, "Failed to encrypt message: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "ERROR: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
     private String getChatId(String user1, String user2) {
         if (user1 == null || user2 == null) {
-            Log.w(TAG, "getChatId called with null user");
             return "unknown_chat";
         }
-        String chatId = user1.compareTo(user2) < 0 ? user1 + "_" + user2 : user2 + "_" + user1;
-        return chatId;
+        return user1.compareTo(user2) < 0 ? user1 + "_" + user2 : user2 + "_" + user1;
     }
 
     private void updateEmptyState() {
@@ -516,7 +435,6 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            Log.d(TAG, "Back button pressed");
             finish();
             return true;
         }
@@ -525,7 +443,6 @@ public class ChatActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        Log.d(TAG, "Hardware back button pressed");
         super.onBackPressed();
         finish();
     }
@@ -541,6 +458,5 @@ public class ChatActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Error removing listener in onDestroy", e);
         }
-        Log.d(TAG, "ChatActivity destroyed");
     }
 }

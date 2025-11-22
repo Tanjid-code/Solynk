@@ -24,9 +24,27 @@ public class RSAEncryptionHelper {
 
     /**
      * Generate RSA key pair and store in SharedPreferences
+     * Only generates if keys don't already exist
      */
     public static void generateAndStoreKeyPair(Context context) {
         try {
+            SharedPreferences prefs = context.getSharedPreferences("SoloConnectPrefs", Context.MODE_PRIVATE);
+
+            // Check if keys already exist
+            if (prefs.contains("publicKey") && prefs.contains("privateKey")) {
+                Log.d(TAG, "Keys already exist, skipping generation");
+
+                // Validate existing keys
+                if (validateKeyPair(context)) {
+                    Log.d(TAG, "✓ Existing keys are valid");
+                    return;
+                } else {
+                    Log.w(TAG, "✗ Existing keys are invalid, regenerating...");
+                    // Continue to generate new keys
+                }
+            }
+
+            Log.d(TAG, "Generating new RSA key pair...");
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance(ALGORITHM);
             keyGen.initialize(KEY_SIZE);
             KeyPair keyPair = keyGen.generateKeyPair();
@@ -42,15 +60,52 @@ public class RSAEncryptionHelper {
             );
 
             // Store in SharedPreferences
-            SharedPreferences prefs = context.getSharedPreferences("SoloConnectPrefs", Context.MODE_PRIVATE);
             prefs.edit()
                     .putString("publicKey", publicKeyString)
                     .putString("privateKey", privateKeyString)
                     .apply();
 
-            Log.d(TAG, "RSA key pair generated and stored successfully");
+            Log.d(TAG, "✓ RSA key pair generated and stored successfully");
+
+            // Validate the newly generated keys
+            if (validateKeyPair(context)) {
+                Log.d(TAG, "✓ New keys validated successfully");
+            } else {
+                Log.e(TAG, "✗ New keys validation failed!");
+            }
+
         } catch (Exception e) {
             Log.e(TAG, "Error generating key pair", e);
+        }
+    }
+
+    /**
+     * Validate that public and private keys match
+     */
+    public static boolean validateKeyPair(Context context) {
+        try {
+            String testMessage = "TEST_VALIDATION_" + System.currentTimeMillis();
+            String publicKey = getPublicKeyString(context);
+
+            if (publicKey == null) {
+                Log.e(TAG, "Public key is null");
+                return false;
+            }
+
+            // Encrypt with public key
+            String encrypted = encrypt(testMessage, publicKey);
+
+            // Decrypt with private key
+            String decrypted = decrypt(context, encrypted);
+
+            boolean isValid = testMessage.equals(decrypted);
+            Log.d(TAG, "Key pair validation: " + (isValid ? "PASS" : "FAIL"));
+
+            return isValid;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Key validation error", e);
+            return false;
         }
     }
 
@@ -104,12 +159,9 @@ public class RSAEncryptionHelper {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
-        // RSA can only encrypt small data, so we'll split if needed
         byte[] messageBytes = message.getBytes("UTF-8");
 
-        // For messages larger than key size, we'd need to use hybrid encryption
-        // For now, limiting message size
-        if (messageBytes.length > 190) { // Safe limit for 2048-bit RSA
+        if (messageBytes.length > 190) {
             throw new Exception("Message too long for RSA encryption. Max 190 bytes.");
         }
 
@@ -141,5 +193,18 @@ public class RSAEncryptionHelper {
     public static boolean keysExist(Context context) {
         SharedPreferences prefs = context.getSharedPreferences("SoloConnectPrefs", Context.MODE_PRIVATE);
         return prefs.contains("publicKey") && prefs.contains("privateKey");
+    }
+
+    /**
+     * Force regenerate keys (use when keys are corrupted)
+     */
+    public static void regenerateKeys(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("SoloConnectPrefs", Context.MODE_PRIVATE);
+        prefs.edit()
+                .remove("publicKey")
+                .remove("privateKey")
+                .apply();
+
+        generateAndStoreKeyPair(context);
     }
 }
